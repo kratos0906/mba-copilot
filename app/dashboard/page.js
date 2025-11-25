@@ -26,12 +26,22 @@ export default function DashboardPage() {
   const [aiPlan, setAiPlan] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editingTask, setEditingTask] = useState(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    category: "academics",
+    deadline: "",
+    effort_hours: 1
+  });
+  const [calendarDate, setCalendarDate] = useState(new Date());
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const remainingCount = tasks.length - completedCount;
   const totalEffort = tasks.reduce((sum, t) => sum + (t.effort_hours || 0), 0);
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const monthLabel = calendarDate.toLocaleString("default", { month: "long", year: "numeric" });
 
   const formatDate = (y, m, d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
@@ -106,6 +116,14 @@ export default function DashboardPage() {
     }));
   };
 
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: name === "effort_hours" ? Number(value) : value
+    }));
+  };
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!user) return;
@@ -159,6 +177,52 @@ export default function DashboardPage() {
         prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
       );
     }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title || "",
+      description: task.description || "",
+      category: task.category || "academics",
+      deadline: task.deadline || "",
+      effort_hours: task.effort_hours || 1
+    });
+  };
+
+  const handleUpdateTask = async (e) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    const { error } = await supabaseClient
+      .from("tasks")
+      .update({
+        title: editForm.title,
+        description: editForm.description,
+        category: editForm.category,
+        deadline: editForm.deadline || null,
+        effort_hours: editForm.effort_hours || null
+      })
+      .eq("id", editingTask.id);
+
+    if (!error) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === editingTask.id
+            ? { ...t, ...editForm, deadline: editForm.deadline || null }
+            : t
+        )
+      );
+      setEditingTask(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTask(null);
+  };
+
+  const changeMonth = (delta) => {
+    const next = new Date(year, month + delta, 1);
+    setCalendarDate(next);
   };
 
   const handleGenerateAiPlan = async () => {
@@ -346,6 +410,11 @@ export default function DashboardPage() {
             <h2>Schedule (This month)</h2>
             <p className="muted">Tasks placed on their deadlines for a quick visual sweep.</p>
           </div>
+          <div className="hero-actions" style={{ gap: "0.5rem" }}>
+            <button onClick={() => changeMonth(-1)} className="btn btn-secondary">Prev</button>
+            <div className="pill">{monthLabel}</div>
+            <button onClick={() => changeMonth(1)} className="btn btn-secondary">Next</button>
+          </div>
         </div>
         {tasks.length === 0 ? (
           <p className="muted">No tasks yet—add some to see them on the calendar.</p>
@@ -442,6 +511,13 @@ export default function DashboardPage() {
                     {task.status === "completed" ? "Mark In Progress" : "Mark Complete"}
                   </button>
                   <button
+                    onClick={() => handleEditTask(task)}
+                    className="pill-btn"
+                    style={{ borderColor: "rgba(255,255,255,0.18)" }}
+                  >
+                    Edit
+                  </button>
+                  <button
                     onClick={() => handleDeleteTask(task.id)}
                     className="pill-btn danger"
                   >
@@ -453,6 +529,88 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+
+      {editingTask && (
+        <section className="card surface hover-lift animate-rise" style={{ marginTop: "1rem" }}>
+          <div className="section-head" style={{ marginBottom: "0.75rem" }}>
+            <div>
+              <h2>Edit task</h2>
+              <p className="muted">Update fields and save.</p>
+            </div>
+            <button onClick={handleCancelEdit} className="btn btn-secondary">
+              Cancel
+            </button>
+          </div>
+          <form onSubmit={handleUpdateTask} className="form-grid">
+            <div className="field">
+              <label className="label" htmlFor="edit-title">Title</label>
+              <input
+                id="edit-title"
+                name="title"
+                value={editForm.title}
+                onChange={handleEditChange}
+                required
+                className="input"
+              />
+            </div>
+            <div className="field">
+              <label className="label" htmlFor="edit-description">Description</label>
+              <textarea
+                id="edit-description"
+                name="description"
+                value={editForm.description}
+                onChange={handleEditChange}
+                rows={3}
+                className="textarea"
+              />
+            </div>
+            <div className="grid-2">
+              <div className="field">
+                <label className="label" htmlFor="edit-category">Category</label>
+                <select
+                  id="edit-category"
+                  name="category"
+                  value={editForm.category}
+                  onChange={handleEditChange}
+                  className="select"
+                >
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="edit-deadline">Deadline</label>
+                <input
+                  type="date"
+                  id="edit-deadline"
+                  name="deadline"
+                  value={editForm.deadline || ""}
+                  onChange={handleEditChange}
+                  className="input"
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="edit-effort_hours">Effort (hours)</label>
+                <input
+                  type="number"
+                  id="edit-effort_hours"
+                  name="effort_hours"
+                  min={1}
+                  value={editForm.effort_hours}
+                  onChange={handleEditChange}
+                  className="input"
+                />
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+              Save changes
+            </button>
+          </form>
+        </section>
+      )}
     </main>
   );
 }
