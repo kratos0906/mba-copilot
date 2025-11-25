@@ -14,12 +14,17 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const handleSessionFromUrl = async () => {
       try {
-        // Parses the recovery token from the URL hash and stores the session
-        const { error } = await supabaseClient.auth.getSessionFromUrl({
-          storeSession: true
-        });
-        if (error) {
-          setError(error.message);
+        // Supabase can send either hash tokens (#access_token) or a code param (?code=)
+        const url = new URL(window.location.href);
+        const hasCode = url.searchParams.get("code");
+        if (hasCode) {
+          const { error } = await supabaseClient.auth.exchangeCodeForSession(hasCode);
+          if (error) setError(error.message);
+        } else if (window.location.hash) {
+          const { error } = await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
+          if (error) setError(error.message);
+        } else {
+          setError("Reset link is missing or expired.");
         }
       } catch (err) {
         setError("Invalid or expired reset link.");
@@ -28,7 +33,7 @@ export default function ResetPasswordPage() {
       }
     };
 
-    if (typeof window !== "undefined" && window.location.hash) {
+    if (typeof window !== "undefined") {
       handleSessionFromUrl();
     } else {
       setLoading(false);
