@@ -9,10 +9,10 @@ export default function ForgotPasswordPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
+  // Prefer a stable env URL so reset links don't point to preview/local origins
   const siteUrl =
-    (typeof window !== "undefined" && window.location.origin) ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "";
+    (typeof window !== "undefined" ? window.location.origin : "");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
