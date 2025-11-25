@@ -14,11 +14,20 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const handleSessionFromUrl = async () => {
       try {
-        // Supabase can send either hash tokens (#access_token) or a code param (?code=)
         const url = new URL(window.location.href);
-        const hasCode = url.searchParams.get("code");
-        if (hasCode) {
-          const { error } = await supabaseClient.auth.exchangeCodeForSession(hasCode);
+        const codeParam = url.searchParams.get("code");
+        const tokenParam = url.searchParams.get("token");
+        const typeParam = url.searchParams.get("type");
+
+        // Supabase may deliver:
+        // - ?code=... (exchangeCodeForSession)
+        // - ?token=...&type=recovery (verifyOtp)
+        // - #access_token=... (getSessionFromUrl)
+        if (codeParam) {
+          const { error } = await supabaseClient.auth.exchangeCodeForSession(codeParam);
+          if (error) setError(error.message);
+        } else if (tokenParam && typeParam === "recovery") {
+          const { error } = await supabaseClient.auth.verifyOtp({ type: "recovery", token: tokenParam });
           if (error) setError(error.message);
         } else if (window.location.hash) {
           const { error } = await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
