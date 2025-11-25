@@ -9,12 +9,17 @@ export default function ForgotPasswordPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
+  const siteUrl =
+    (typeof window !== "undefined" && window.location.origin) ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("");
     setError("");
     const { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined
+      redirectTo: siteUrl ? `${siteUrl}/reset-password` : undefined
     });
     if (error) {
       setError(error.message);
