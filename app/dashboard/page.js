@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "../../lib/supabaseClient";
 
@@ -29,6 +29,37 @@ export default function DashboardPage() {
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const remainingCount = tasks.length - completedCount;
   const totalEffort = tasks.reduce((sum, t) => sum + (t.effort_hours || 0), 0);
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  const formatDate = (y, m, d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  const tasksByDate = useMemo(() => {
+    const grouped = {};
+    for (const t of tasks) {
+      if (t.deadline) {
+        grouped[t.deadline] = grouped[t.deadline] || [];
+        grouped[t.deadline].push(t);
+      }
+    }
+    return grouped;
+  }, [tasks]);
+
+  const monthDays = useMemo(() => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, idx) => {
+      const day = idx + 1;
+      const dateStr = formatDate(year, month, day);
+      return {
+        day,
+        dateStr,
+        tasks: tasksByDate[dateStr] || []
+      };
+    });
+  }, [month, tasksByDate, year]);
+
+  const noDeadlineTasks = tasks.filter((t) => !t.deadline);
 
   // Check auth
   useEffect(() => {
@@ -308,6 +339,60 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+
+      <section className="card surface hover-lift animate-rise" style={{ marginTop: "1.25rem" }}>
+        <div className="section-head" style={{ marginBottom: "0.75rem" }}>
+          <div>
+            <h2>Schedule (This month)</h2>
+            <p className="muted">Tasks placed on their deadlines for a quick visual sweep.</p>
+          </div>
+        </div>
+        {tasks.length === 0 ? (
+          <p className="muted">No tasks yet—add some to see them on the calendar.</p>
+        ) : (
+          <>
+            <div className="calendar-grid">
+              {monthDays.map((item) => {
+                const isToday = item.dateStr === formatDate(year, month, today.getDate());
+                const tasksForDay = item.tasks;
+                const extra = tasksForDay.length > 3 ? tasksForDay.length - 3 : 0;
+                return (
+                  <div
+                    key={item.dateStr}
+                    className={`calendar-cell ${isToday ? "calendar-today" : ""}`}
+                  >
+                    <div className="calendar-day">
+                      <span>{item.day}</span>
+                      {isToday && <span className="calendar-pill">Today</span>}
+                    </div>
+                    <div className="calendar-tasks">
+                      {tasksForDay.slice(0, 3).map((t) => (
+                        <span key={t.id} className="calendar-task">
+                          {CATEGORY_OPTIONS.find((c) => c.value === t.category)?.label || t.category} · {t.title}
+                        </span>
+                      ))}
+                      {extra > 0 && <span className="calendar-task">+{extra} more</span>}
+                      {tasksForDay.length === 0 && <span className="muted" style={{ fontSize: "0.9rem" }}>No tasks</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {noDeadlineTasks.length > 0 && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <p className="muted" style={{ marginBottom: "0.35rem" }}>No deadline</p>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {noDeadlineTasks.map((t) => (
+                    <span key={t.id} className="calendar-task">
+                      {t.title}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       <section className="card surface hover-lift animate-rise" style={{ marginTop: "1.25rem" }}>
         <div className="section-head" style={{ marginBottom: "0.75rem" }}>
