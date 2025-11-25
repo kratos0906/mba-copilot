@@ -10,31 +10,44 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    const handleSessionFromUrl = async () => {
-      try {
-        const url = new URL(window.location.href);
-        const codeParam = url.searchParams.get("code");
-        const tokenParam = url.searchParams.get("token");
-        const typeParam = url.searchParams.get("type");
+    const handleSessionFromHash = async () => {
+      if (typeof window === "undefined") {
+        setLoading(false);
+        return;
+      }
 
-        // Supabase may deliver:
-        // - ?code=... (exchangeCodeForSession)
-        // - ?token=...&type=recovery (verifyOtp)
-        // - #access_token=... (getSessionFromUrl)
-        if (codeParam) {
-          const { error } = await supabaseClient.auth.exchangeCodeForSession(codeParam);
-          if (error) setError(error.message);
-        } else if (tokenParam && typeParam === "recovery") {
-          const { error } = await supabaseClient.auth.verifyOtp({ type: "recovery", token: tokenParam });
-          if (error) setError(error.message);
-        } else if (window.location.hash) {
-          const { error } = await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
-          if (error) setError(error.message);
-        } else {
+      setLoading(true);
+      setError("");
+      setStatus("");
+
+      try {
+        const hashParams = new URLSearchParams(window.location.hash?.slice(1));
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+
+        if (!accessToken || !refreshToken) {
           setError("Reset link is missing or expired.");
+          return;
         }
+
+        const { error } = await supabaseClient.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (error) {
+          setError(error.message);
+          return;
+        }
+
+        // Remove sensitive tokens from the URL after we store the session
+        const cleanUrl = window.location.pathname + window.location.search;
+        window.history.replaceState({}, document.title, cleanUrl);
+        setSessionReady(true);
+        setStatus("Reset link verified. Enter a new password below.");
       } catch (err) {
         setError("Invalid or expired reset link.");
       } finally {
@@ -42,25 +55,32 @@ export default function ResetPasswordPage() {
       }
     };
 
-    if (typeof window !== "undefined") {
-      handleSessionFromUrl();
-    } else {
-      setLoading(false);
-    }
+    handleSessionFromHash();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setStatus("");
+
+    if (!sessionReady) {
+      setError("Reset link not verified. Please open the link from your email again.");
+      return;
+    }
+
     setSubmitting(true);
-    const { error } = await supabaseClient.auth.updateUser({ password });
-    setSubmitting(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      setStatus("Password updated. You can now log in.");
-      setPassword("");
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password });
+      if (error) {
+        setError(error.message);
+      } else {
+        setStatus("Password updated. You can now log in.");
+        setPassword("");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -82,6 +102,15 @@ export default function ResetPasswordPage() {
         </div>
         {loading ? (
           <p className="muted">Verifying reset link...</p>
+        ) : !sessionReady ? (
+          <div className="stack">
+            <p style={{ color: "var(--danger)" }}>
+              {error || "Reset link is missing or expired. Request a new one to continue."}
+            </p>
+            <Link href="/forgot-password" className="btn btn-primary">
+              Request new reset link
+            </Link>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="form-grid">
             <div className="field">
