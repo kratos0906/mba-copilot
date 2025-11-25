@@ -213,22 +213,22 @@ export default function DashboardPage() {
         </div>
         <div className="grid-2" style={{ marginTop: "0.5rem" }}>
           <div className="card hover-lift animate-rise stagger-1">
-            <p className="muted">Open tasks</p>
+            <p className="muted">📌 Open tasks</p>
             <h3 style={{ fontSize: "1.6rem" }}>{remainingCount}</h3>
             <p className="muted" style={{ fontSize: "0.95rem" }}>Awaiting completion</p>
           </div>
           <div className="card hover-lift animate-rise stagger-2">
-            <p className="muted">Completed</p>
+            <p className="muted">✅ Completed</p>
             <h3 style={{ fontSize: "1.6rem" }}>{completedCount}</h3>
             <p className="muted" style={{ fontSize: "0.95rem" }}>Checked off</p>
           </div>
           <div className="card hover-lift animate-rise stagger-3">
-            <p className="muted">Estimated effort</p>
+            <p className="muted">⏱ Estimated effort</p>
             <h3 style={{ fontSize: "1.6rem" }}>{totalEffort}h</h3>
             <p className="muted" style={{ fontSize: "0.95rem" }}>Across all tasks</p>
           </div>
           <div className="card hover-lift animate-rise stagger-4">
-            <p className="muted">Categories</p>
+            <p className="muted">🗂 Categories</p>
             <h3 style={{ fontSize: "1.6rem" }}>{CATEGORY_OPTIONS.length}</h3>
             <p className="muted" style={{ fontSize: "0.95rem" }}>Focus areas</p>
           </div>
